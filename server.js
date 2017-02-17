@@ -21,7 +21,6 @@ var config = {
     username: 'timelapse',
     password: 'timelapse',
     isCapturing: false,
-    captureDaemonPid: null,
     capturePath:  __dirname + '/../capture',
     captureFolder: 'default',
     timelapseInterval: 1,
@@ -49,28 +48,6 @@ console.log = function(data){
     this.logFormatted(timestamp, data);
 }
 
-var cronStart = new cron.CronJob({
-    cronTime: '* * 7-18 * * 1-5',
-    onTick: function() {
-        if(!config.isCapturing){
-            console.log("Not running, will start capture now");
-            apiActions.startCapture(null, function(){});
-        }
-    },
-    start: false
-});
-
-var cronStop = new cron.CronJob({
-    cronTime: '* * 19-0,0-6 * * 1-5',
-    onTick: function() {
-        if(config.isCapturing){
-            console.log("Capture running, will stop capture now");
-            apiActions.startCapture(null, function(){});
-        }
-    },
-    start: false
-});
-
 function loadConfig() {
     try {
         var savedConfig = fs.readFileSync(configFilename, 'utf8');
@@ -93,6 +70,14 @@ loadConfig();
 function saveConfig(callback) {
     fs.writeFile(configFilename, JSON.stringify(config), callback);
 }
+
+var cronMakeCapture = new cron.CronJob({
+    cronTime: '*/' + config.timelapseInterval + ' * 7-18 * * 1-5',
+    onTick: function() {
+        apiActions.startCapture(null, function(){});
+    },
+    start: false
+});
 
 var serverOptions = {
     key: fs.readFileSync(__dirname + '/config/timelapse.key'),
@@ -196,8 +181,8 @@ function updateStatus(partial) {
         status.captureMode.value = 'Not capturing';
         status.captureMode.type = 'danger';
     } else {
-        status.captureMode.value = 'Capturing (' + (config.captureDaemonPid !== null ? 'PID ' + config.captureDaemonPid : 'No active process!') + ')';
-        status.captureMode.type = config.captureDaemonPid !== null ? 'success' : 'warning';
+        status.captureMode.value = cronMakeCapture.running ? 'Cron capturing' : 'Cron not started';
+        status.captureMode.type = cronMakeCapture.running ? 'success' : 'warning';
     }
 
     if (!partial) {
@@ -271,7 +256,7 @@ function updateStatus(partial) {
 var updateStatusInterval = setInterval(updateStatus, 10000);
 updateStatus();
 
-function formatDate(date) {
+function formatDateTime(date) {
     return pad2(date.getFullYear()) +
         '-' + pad2(date.getMonth() + 1) +
         '-' + pad2(date.getDate()) +
@@ -280,7 +265,7 @@ function formatDate(date) {
         ':' + pad2(date.getSeconds());
 };
 
-function formatFolderDate(date) {
+function formatDate(date) {
     return pad2(date.getFullYear()) +
         '-' + pad2(date.getMonth() + 1) +
         '-' + pad2(date.getDate());
@@ -338,7 +323,7 @@ function generateDaemonArguments() {
         encoding: 'jpg',
         quality: config.jpegQuality,
         thumb: config.thumbnailWidth + ':' + config.thumbnailHeight + ':70',
-        output: config.capturePath + '/' + config.captureFolder + '/%06d.jpg',
+        output: config.capturePath + '/' + config.captureFolder + '/' + formatDateTime(new Date()) + '.jpg',
         latest: config.capturePath + '/latest.jpg',
 
         exposure: config.exposure,
@@ -351,7 +336,6 @@ function generateDaemonArguments() {
         hflip: config.hflip ? null : undefined,
         vflip: config.vflip ? null : undefined,
 
-        timelapse: Math.round(config.timelapseInterval * 1000),
         timeout: 10 * 365 * 24 * 3600,
         verbose: null,
     };
@@ -368,46 +352,37 @@ function generateDaemonArguments() {
     return raspistillOptionsRaw;
 }
 
-function killCaptureDeamon(){
-    config.isCapturing = false;
-
-    if (config.captureDaemonPid !== null) {
-        try {
-            process.kill(config.captureDaemonPid);
-        } catch (err) {
-        }
-        config.captureDaemonPid = null;
-    }
-}
-
 var apiActions = {
     startCapture: function (data, callback) {
-        if (config.captureDaemonPid !== null) return callback('Capture daemon already running', 400);
+        if (!cronMakeCapture.running){
+            cronMakeCapture.start();
+        }
 
         config.isCapturing = true;
         config.captureFolder = formatDate(new Date()).replace(/:/g, '.');
 
-        console.log("captureFolder: " + config.captureFolder);
-
-        fs.mkdir(config.capturePath + '/' + config.captureFolder, function (err) {
-            if (err) return callback('Error creating capture folder');
-
-            var child = child_process.spawn('/usr/bin/raspistill', generateDaemonArguments(), {
-                cwd: config.capturePath,
-                stdio: 'ignore',
-                detached: true
+        if (!fs.exists(config.capturePath + '/' + config.captureFolder)){
+            fs.mkdir(config.capturePath + '/' + config.captureFolder, function (err) {
+                if (err) return callback('Error creating capture folder');
+                console.log("Created captureFolder: " + config.captureFolder);
             });
-            config.captureDaemonPid = child.pid;
-            child.unref();
+        }
 
-            saveConfig(function (err) {
-                if (err) return callback('Error saving config');
-                callback(status, 200);
-            });
+        var child = child_process.spawn('/usr/bin/raspistill', generateDaemonArguments(), {
+            cwd: config.capturePath,
+            stdio: 'ignore',
+            detached: true
+        });
+        child.unref();
+
+        saveConfig(function (err) {
+            if (err) return callback('Error saving config');
+            callback(status, 200);
         });
     },
     stopCapture: function (data, callback) {
-        killCaptureDeamon();
+        config.isCapturing = false;
+        cronMakeCapture.stop();
 
         saveConfig(function (err) {
             if (err) return callback('Error saving config');
@@ -437,18 +412,6 @@ var apiActions = {
         callback({error: 'Unknown API-Action'}, 404);
     }
 };
-
-if (config.captureDaemonPid !== null) {
-    // check if process still exists:
-    try {
-        process.kill(config.captureDaemonPid, 0);
-    } catch (err) {
-        config.captureDaemonPid = null;
-    }
-}
-if (config.isCapturing && config.captureDaemonPid === null) {
-    apiActions['startCapture']({}, function() {})
-}
 
 var server = https.createServer(serverOptions, function (request, response) {
     var startTime = process.hrtime();
@@ -542,11 +505,11 @@ httpShutdownExtend(server);
 server.listen(4443);
 
 function shutdown() {
-    if (config.captureDaemonPid !== null){
-        console.log("Capture deamon still running, shutting it down");
-        killCaptureDeamon();
-        saveConfig(function () {});
+    if (cronMakeCapture.running){
+        console.log("Capture cron still running, shutting it down");
+        apiActions.stopCapture(null, function(){});
     }
+    
 
     clearInterval(updatePreviewImageInterval);
     clearInterval(updateStatusInterval);
@@ -558,12 +521,7 @@ process.on('SIGINT', shutdown);
 
 process.on('SIGTERM', shutdown);
 
-if (!cronStart.running){
-    console.log("cronStart starting job");
-    cronStart.start();
-}
-
-if (!cronStop.running){
-    console.log("cronStop starting job");
-    cronStop.start();
+// Auto start the cron upon starting of node js
+if (!cronMakeCapture.running){
+    cronMakeCapture.start();
 }
