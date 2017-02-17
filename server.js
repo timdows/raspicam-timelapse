@@ -14,6 +14,7 @@ var ExifImage = require('exif').ExifImage;
 var vcgencmd = require('vcgencmd');
 var diskusage = require('diskusage');
 var getInterfaceInfo = require('./build/Release/binding').getInterfaceInfo;
+var cron = require('cron');
 
 var configFilename = __dirname + '/config/timelapse.json';
 var config = {
@@ -41,6 +42,44 @@ var config = {
 }
 
 var cameraDetected = vcgencmd.getCamera().detected;
+
+console.logFormatted = console.log.bind(console);
+console.log = function(data){
+    var timestamp = "[" + new Date().toString() + "]";
+    this.logFormatted(timestamp, data);
+}
+
+var cronStart = new cron.CronJob({
+    cronTime: '* * 7-18 * * 1-5',
+    onTick: function() {
+        if(!config.isCapturing){
+            console.log("Not running, will start capture now");
+            apiActions.startCapture(null, function(){});
+        }
+    },
+    start: false
+});
+
+var cronStop = new cron.CronJob({
+    cronTime: '* * 19-0,0-6 * * 1-5',
+    onTick: function() {
+        if(config.isCapturing){
+            console.log("Capture running, will stop capture now");
+            apiActions.startCapture(null, function(){});
+        }
+    },
+    start: false
+});
+
+if (!cronStart.running){
+    console.log("cronStart starting job");
+    cronStart.start();
+}
+
+if (!cronStop.running){
+    console.log("cronStop starting job");
+    cronStop.start();
+}
 
 function loadConfig() {
     try {
@@ -303,7 +342,7 @@ function generateDaemonArguments() {
         encoding: 'jpg',
         quality: config.jpegQuality,
         thumb: config.thumbnailWidth + ':' + config.thumbnailHeight + ':70',
-        output: config.capturePath + '/' + config.captureFolder + '/img_%04d.jpg',
+        output: config.capturePath + '/' + config.captureFolder + '/%06d.jpg',
         latest: config.capturePath + '/latest.jpg',
 
         exposure: config.exposure,
@@ -333,6 +372,18 @@ function generateDaemonArguments() {
     return raspistillOptionsRaw;
 }
 
+function killCaptureDeamon(){
+    config.isCapturing = false;
+
+    if (config.captureDaemonPid !== null) {
+        try {
+            process.kill(config.captureDaemonPid);
+        } catch (err) {
+        }
+        config.captureDaemonPid = null;
+    }
+}
+
 var apiActions = {
     startCapture: function (data, callback) {
         if (config.captureDaemonPid !== null) return callback('Capture daemon already running', 400);
@@ -358,15 +409,7 @@ var apiActions = {
         });
     },
     stopCapture: function (data, callback) {
-        config.isCapturing = false;
-
-        if (config.captureDaemonPid !== null) {
-            try {
-                process.kill(config.captureDaemonPid);
-            } catch (err) {
-            }
-            config.captureDaemonPid = null;
-        }
+        killCaptureDeamon();
 
         saveConfig(function (err) {
             if (err) return callback('Error saving config');
@@ -501,6 +544,12 @@ httpShutdownExtend(server);
 server.listen(4443);
 
 function shutdown() {
+    if (config.captureDaemonPid !== null){
+        console.log("Capture deamon still running, shutting it down");
+        killCaptureDeamon();
+        saveConfig(function () {});
+    }
+
     clearInterval(updatePreviewImageInterval);
     clearInterval(updateStatusInterval);
     server.shutdown();

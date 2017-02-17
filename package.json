@@ -19,14 +19,15 @@
     "node": ">=0.10.28"
   },
   "dependencies": {
-    "st": "^0.5.5",
     "basic-auth": "^1.0.3",
+    "bootstrap": "^3.3.5",
+    "cron": "^1.2.1",
+    "diskusage": "^0.1.4",
     "exif": "^0.4.0",
     "http-shutdown": "^1.0.3",
+    "jquery": "^2.1.4",
     "nan": "^2.3.3",
-    "vcgencmd": "^0.3.0",
-    "diskusage": "^0.1.4",
-    "bootstrap": "^3.3.5",
-    "jquery": "^2.1.4"
+    "st": "^0.5.5",
+    "vcgencmd": "^0.3.0"
   }
 }
