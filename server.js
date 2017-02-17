@@ -71,16 +71,6 @@ var cronStop = new cron.CronJob({
     start: false
 });
 
-if (!cronStart.running){
-    console.log("cronStart starting job");
-    cronStart.start();
-}
-
-if (!cronStop.running){
-    console.log("cronStop starting job");
-    cronStop.start();
-}
-
 function loadConfig() {
     try {
         var savedConfig = fs.readFileSync(configFilename, 'utf8');
@@ -290,6 +280,12 @@ function formatDate(date) {
         ':' + pad2(date.getSeconds());
 };
 
+function formatFolderDate(date) {
+    return pad2(date.getFullYear()) +
+        '-' + pad2(date.getMonth() + 1) +
+        '-' + pad2(date.getDate());
+};
+
 function pad2(number) {
     if (number < 10) return '0' + number;
     return '' + number;
@@ -390,6 +386,8 @@ var apiActions = {
 
         config.isCapturing = true;
         config.captureFolder = formatDate(new Date()).replace(/:/g, '.');
+
+        console.log("captureFolder: " + config.captureFolder);
 
         fs.mkdir(config.capturePath + '/' + config.captureFolder, function (err) {
             if (err) return callback('Error creating capture folder');
@@ -559,3 +557,13 @@ function shutdown() {
 process.on('SIGINT', shutdown);
 
 process.on('SIGTERM', shutdown);
+
+if (!cronStart.running){
+    console.log("cronStart starting job");
+    cronStart.start();
+}
+
+if (!cronStop.running){
+    console.log("cronStop starting job");
+    cronStop.start();
+}
