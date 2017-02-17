@@ -261,8 +261,8 @@ function formatDateTime(date) {
         '-' + pad2(date.getMonth() + 1) +
         '-' + pad2(date.getDate()) +
         ' ' + pad2(date.getHours()) +
-        ':' + pad2(date.getMinutes()) +
-        ':' + pad2(date.getSeconds());
+        '' + pad2(date.getMinutes()) +
+        '' + pad2(date.getSeconds());
 };
 
 function formatDate(date) {
@@ -336,9 +336,10 @@ function generateDaemonArguments() {
         hflip: config.hflip ? null : undefined,
         vflip: config.vflip ? null : undefined,
 
-        timeout: 10 * 365 * 24 * 3600,
         verbose: null,
     };
+
+    console.log(raspistillOptions.output);
 
     var raspistillOptionsRaw = [];
     for (var name in raspistillOptions) {
