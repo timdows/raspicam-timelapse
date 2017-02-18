@@ -24,6 +24,8 @@ var config = {
     capturePath:  __dirname + '/../capture',
     captureFolder: 'default',
     timelapseInterval: 1,
+    timelapseActiveHours: "7-18",
+    timelapseActiveDays: "1-6",
     exposure: 'auto',
     ev: 0,
     iso: 100,
@@ -72,7 +74,7 @@ function saveConfig(callback) {
 }
 
 var cronMakeCapture = new cron.CronJob({
-    cronTime: '*/' + config.timelapseInterval + ' * 7-18 * * 1-5',
+    cronTime: '*/' + config.timelapseInterval + ' * ' + config.timelapseActiveHours + ' * * ' + config.timelapseActiveDays,
     onTick: function() {
         apiActions.startCapture(null, function(){});
     },
