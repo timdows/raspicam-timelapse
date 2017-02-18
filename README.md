@@ -1,3 +1,7 @@
+Descrption of the forked project
+================================
+Most of the code here is displayed and explained on https://timdows.com/projects/angular2-templates-with-asp-net-core-razor/
+
 RaspiCam-Timelapse
 ==================
 
@@ -12,7 +16,7 @@ Simple Web-App and complete HowTo for setting up a Raspberry Pi with Camera for 
 - Sync-Script - via rsync as alternative to BitTorrent-Sync (optional)
 - Prerequisites: Raspberry Pi + Power + SD-Card, RaspiCam, LAN Cable, USB Wi-Fi Adapter (optional)
 
-![Screenshot](screenshot.jpg)
+![Screenshot](screenshot.png)
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
