@@ -206,6 +206,12 @@ function updateStatus(partial) {
                             status.freeDiskSpace.value += ' - Capture: ' + formatBytes(captureInfo.available) + ' (' + captureFreePercent + ' %)';
                         }
                         status.freeDiskSpace.type = minFreePercent < 10 ? (minFreePercent < 3 ? 'danger' : 'warning') : 'success';
+
+                        // Check if we should stop the cron due to insufficient diskspace
+                        if (minFreePercent < 5) {
+                            console.log("Stopping due to insufficient free diskspace");
+                            apiActions.stopCapture(null, function(){});
+                        }
                     });
                 });
             });
