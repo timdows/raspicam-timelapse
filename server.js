@@ -1,6 +1,7 @@
 'use strict';
 
 var https = require('https');
+var http = require('http');
 var httpShutdownExtend = require('http-shutdown');
 var urlModule = require('url');
 var querystring = require('querystring');
@@ -81,10 +82,10 @@ var cronMakeCapture = new cron.CronJob({
     start: false
 });
 
-var serverOptions = {
-    key: fs.readFileSync(__dirname + '/config/timelapse.key'),
-    cert: fs.readFileSync(__dirname + '/config/timelapse.crt')
-};
+// var serverOptions = {
+//     key: fs.readFileSync(__dirname + '/config/timelapse.key'),
+//     cert: fs.readFileSync(__dirname + '/config/timelapse.crt')
+// };
 
 var mounts = [st({
     path: __dirname + '/node_modules/bootstrap/dist',
@@ -422,7 +423,7 @@ var apiActions = {
     }
 };
 
-var server = https.createServer(serverOptions, function (request, response) {
+var server = http.createServer(function (request, response) {
     var startTime = process.hrtime();
     var credentials = auth(request);
 
@@ -511,7 +512,7 @@ var server = https.createServer(serverOptions, function (request, response) {
 });
 
 httpShutdownExtend(server);
-server.listen(4443);
+server.listen(3000);
 
 function shutdown() {
     if (cronMakeCapture.running){
