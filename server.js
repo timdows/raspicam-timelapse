@@ -146,7 +146,7 @@ function updatePreviewImage() {
 
                         previewImage = thumbnail;
                         previewImageHash = newHash;
-                        previewImageInfo = formatDate(stat.mtime) + ' (' + formatBytes(stat.size) + ')';
+                        previewImageInfo = formatDateTime(stat.mtime) + ' (' + formatBytes(stat.size) + ')';
                     });
                 });
             });
